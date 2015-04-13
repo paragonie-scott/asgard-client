@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+asgardbase=$( dirname $( readlink -f ${BASH_SOURCE[0]} ) )
+
+php $asgardbase/src/asgard.php $*

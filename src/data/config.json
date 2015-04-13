@@ -1,0 +1,16 @@
+{
+    "storage": {
+        "blockchain" : {
+            "driver": "sqlite",
+            "path": "blockchain.etilqs"
+        },
+        "settings" : {
+            "driver": "sqlite",
+            "path": "asgard.etilqs"
+        },
+        "notary" : {
+            "driver": "sqlite",
+            "path": "notary.etilqs"
+        }
+    }
+}

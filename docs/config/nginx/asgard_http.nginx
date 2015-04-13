@@ -1,0 +1,27 @@
+server {
+    listen 8073;
+    listen [::]:8073;
+    
+    root /var/www/asgard-notary/src/public;
+    index index.php index.html index.htm;
+    
+    server_name asgardnotary.example.com;
+    
+    location / {
+        try_files $uri $uri/ /index.php?$args;
+    }
+
+	# pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
+	#
+	location ~ \.php$ {
+		fastcgi_split_path_info ^(.+\.php)(/.+)$;
+
+        # With php5-cgi alone:
+        # fastcgi_pass 127.0.0.1:9000;
+
+		# With php5-fpm:
+		fastcgi_pass unix:/var/run/php5-fpm.sock;
+		fastcgi_index index.php;
+		include fastcgi_params;
+	}
+}
