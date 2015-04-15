@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 SODIUMVER="1.0.2"
-PECLSODIUMVER="0.1.2"
+PECLSODIUMVER="0.1.3"
 
 if [[ $EUID -ne 0 ]]; then
    echo "The installer must be run as root!" 1>&2
