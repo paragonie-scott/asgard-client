@@ -1,5 +1,5 @@
 <?php
-define('CONFIGROOT', ASGARD_ROOT.'/data/');
+define('CONFIGROOT', __DIR__.'/data/');
 /**
  * Paragon Initiative Enterprises - Asgard PHP Client
  * PSR-4 compatible autoloader
@@ -9,7 +9,7 @@ define('CONFIGROOT', ASGARD_ROOT.'/data/');
     $prefix = 'ParagonIE\\AsgardClient';
 
     // Base directory for the namespace prefix
-    $base_dir = ASGARD_ROOT.'/Client/';
+    $base_dir = __DIR__.'/Client/';
 
     // Does the class use the namespace prefix?
     $len = \strlen($prefix);
@@ -46,7 +46,7 @@ define('CONFIGROOT', ASGARD_ROOT.'/data/');
     $prefix = 'ParagonIE\\AsgardNotary';
 
     // Base directory for the namespace prefix
-    $base_dir = ASGARD_ROOT.'/Notary/';
+    $base_dir = __DIR__.'/Notary/';
 
     // Does the class use the namespace prefix?
     $len = \strlen($prefix);
@@ -74,4 +74,4 @@ define('CONFIGROOT', ASGARD_ROOT.'/data/');
     }
 });
 
-require_once ASGARD_ROOT.'/thirdparty/ToroPHP/src/Toro.php';
+require_once __DIR__.'/thirdparty/ToroPHP/src/Toro.php';
