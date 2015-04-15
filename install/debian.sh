@@ -56,3 +56,4 @@ else
 fi
 asgardbase=$( dirname $( readlink -f ${BASH_SOURCE[0]} ) )
 ln -s $asgardbase/asgard /usr/bin/asgard
+chmod 0755 /usr/bin/asgard
