@@ -43,8 +43,7 @@ if [ ! -f /etc/php5/mods-available/libsodium.ini ]; then
         cd libsodium-$SODIUMVER
         # The ritual
         ./configure
-        make && make check
-        make install
+        make && make check && make install
     fi
 
     # Now let's install the libsodium PECL package
