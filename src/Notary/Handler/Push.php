@@ -29,11 +29,16 @@ class BlockChain extends Base\BaseHandler
             !empty($_POST['merkleroot']) &&
             !empty($_POST['block'])
         ) {
+            // Plausibly a message from the mother ship? Let's check our 
+            $signature = \base64_decode($_POST['signature']);
             $message = \base64_decode($_POST['message']);
+            $pubkey = \base64_decode(
+                \ParagonIE\AsgardClient\MetaData::AUTHORIZED_PUBLICKEY
+            );
             if (\Sodium::crypto_sign_verify_detached(
-                \base64_decode($_POST['signature']),
+                $signature,
                 $message,
-                \base64_decode(\ParagonIE\AsgardClient\MetaData::AUTHORIZED_PUBLICKEY)
+                $pubkey
             )) {
                 // Should be the same as a new message
                 $re_encode = \json_encode(
@@ -51,6 +56,8 @@ class BlockChain extends Base\BaseHandler
                 );
             }
         }
+        
+        // Usual case: You are not l33t enough to grab our priv8 key
         echo \json_encode(
             [
                 'error' => 'Access denied.'
@@ -89,12 +96,16 @@ class BlockChain extends Base\BaseHandler
             );
             exit;
         }
+        
+        // Grab previous tailhash:
         $tail = $this->db->selectRow(
             'blocks',
             ['id', 'hash'],
             [],
             [ ['id', DESC] ]
         );
+        // If our previous hash does not equal the pointer to the prevhash in 
+        // the current block, something screwy is going on.
         if (!\hash_equals($tail['hash'], $prevhash)) {
             echo \json_encode(
                 [
@@ -105,6 +116,7 @@ class BlockChain extends Base\BaseHandler
             exit;
         }
         
+        // Update previous tail block to point to the new addition
         $this->db->update('blocks', [
             'nexthash' => $merkleroot,
             'nextblock' => $blockId
@@ -112,6 +124,7 @@ class BlockChain extends Base\BaseHandler
             'id' => $tail['id']
         ]);
         
+        // Insert a new block        
         return $this->db->insert('blocks', [
             'id' => $blockId,
             'hash' => $merkleroot,

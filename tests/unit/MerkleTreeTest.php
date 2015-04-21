@@ -13,6 +13,11 @@ class MerkleTreeTest extends PHPUnit_Framework_TestCase
             'a', 'b', 'c', 'd', 'e', 'e', 'e', 'e'
         ]);
         
-        $this->assertTrue($tree1->getRoot() === $tree2->getRoot());
+        $this->assertTrue(
+            \hash_equals(
+                $tree1->getRoot(),
+                $tree2->getRoot()
+            )
+        );
     }
 }

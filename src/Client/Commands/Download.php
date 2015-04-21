@@ -14,8 +14,6 @@ class Download extends Base\Command
         'text' => 'INSECURE'
     ];
     
-    # Note to self: the constant is ASGARD_USER_HOME
-    
     public function __construct()
     {
         if (!\is_dir(ASGARD_LOCAL_CONFIG.'/bin')) {
@@ -28,6 +26,7 @@ class Download extends Base\Command
     
     public function setup()
     {
+        // Choose a random mirror
         $oMirror = $this->getCommandObject('Mirror');
         $mirror = $oMirror->getRandomMirror();
         list($domain, $basepath) = $oMirror->getDomainAndPath($mirror['url']);
@@ -37,7 +36,7 @@ class Download extends Base\Command
     }
 
     /**
-     * Execute the download command
+     * Execute the download command. This is for experts only, please!
      *
      * @param array $args - CLI arguments
      * @echo
@@ -48,6 +47,7 @@ class Download extends Base\Command
         if (empty($args)) {
             die("You did not specify a package name\n");
         }
+        
         $this->setup();
         echo "I hope you know what you're doing...\n";
         
@@ -57,6 +57,7 @@ class Download extends Base\Command
                 $args[0]
             );
         }
+        
         foreach ($licenses as $lic) {
             echo 'Fetching updates..';
             $updates = $this->updatePackageInfo(
@@ -69,6 +70,8 @@ class Download extends Base\Command
                 continue;
             }
             echo 'Trying public key ', $lic['publickey'], "\n";
+            
+            // Actually download the file, it it can be!
             $file = $this->download(
                 $args[0],
                 $lic['publickey'],
@@ -92,11 +95,12 @@ class Download extends Base\Command
     public function silentFetch($package, $setup = true)
     {
         if ($setup) {
+            // Call setup() to define $this->http and $this->basepath
             $this->setup();
         }
         $licenses = $this->db->select('licenses');
+        
         if (empty($licenses)) {
-            
             $updates = $this->unlicensedGet(
                 $package
             );
@@ -105,6 +109,7 @@ class Download extends Base\Command
             );
             return [$updates, $file, null];
         }
+        
         foreach ($licenses as $lic) {
             $updates = $this->updatePackageInfo(
                 $lic['publickey'],
@@ -136,8 +141,11 @@ class Download extends Base\Command
      */
     public function silentFetchAll($packages, $publickeys)
     {
+        
+        // Call setup() to define $this->http and $this->basepath
         $this->setup();
         $result = [];
+        
         foreach ($packages as $key => $pkg) {
             $publickey = $publickeys[$key];
             $secretkey = $this->db->selectOne(
@@ -159,11 +167,14 @@ class Download extends Base\Command
                 // There were no updates for this package.
                 continue;
             }
+            
             $file = $this->downloadFile(
                 $pkg,
                 $publickey,
                 $secretkey
             );
+            
+            // Building this array according tospec
             $result[0][$key] = $updates;
             $result[1][$key] = $file;
             $result[2][$key] = $publickey;
@@ -196,6 +207,9 @@ class Download extends Base\Command
                 ]
             );
         }
+        
+        // Let's decode the challenge
+        
         $chal = \json_decode($initial, true);
         // Is this a free package? If so, we download it immediately!
         if (!empty($chal['url'])) {
@@ -206,6 +220,8 @@ class Download extends Base\Command
             }
             return $filename;
         }
+        
+        // Challenge response authentication:
         if (empty($publickey) || empty($secretkey)) {
             if ($echo) {
                 echo 'No license key.', "\n\n";
@@ -334,8 +350,13 @@ class Download extends Base\Command
             return false;
         }
         
+        // We need to decrypt the response
+        
+        // Server's public key (can rotate)
         $serverPublicKey = \base64_decode($api['publickey']);
+        // A nonce used to decrypt
         $serverNonce = \base64_decode($api['nonce']);
+        // What packages are there?
         $ciphertext = \base64_decode($api['packages']);
         
         // Calculate symmetric encryption key
@@ -351,6 +372,7 @@ class Download extends Base\Command
             $eBoxKey
         );
         
+        // We want an array
         return \json_decode($updates, true);
     }
     
@@ -384,7 +406,11 @@ class Download extends Base\Command
         
         $api = \json_decode($apiResponse, true);
         
-        $pkg = \json_decode(\base64_decode($api['packages']), true);
+        $pkg = \json_decode(
+            \base64_decode($api['packages']),
+            true
+        );
+        
         return $pkg;
     }
 }

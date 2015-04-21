@@ -86,7 +86,10 @@ class Verify extends Base\Command
         }
         
         // Finally, let's validate the checksums on the file.
-        $blockData = $this->extractBlockData($signed, $validLicense);
+        $blockData = $this->extractBlockData(
+            $signed,
+            $validLicense
+        );
         
         if (empty($blockData)) {
             return false;
@@ -94,7 +97,11 @@ class Verify extends Base\Command
         
         // Do all the blockchained checksums match the file?
         foreach ($blockData as $aBlock) {
-            if (!$this->verifyChecksums($aBlock[0], $tmp_file)) {
+            $checked = $this->verifyChecksums(
+                $aBlock[0],
+                $tmp_file
+            );
+            if (!$checked) {
                 return false;
             }
         }
@@ -182,7 +189,7 @@ class Verify extends Base\Command
                 // Ephemeral Public Key
                 // Nonce
                 // Authenticated Ciphertext
-            list($ver, $clientPublic, $serverPublic, $nonce, $ciphertext) =
+            list( , $clientPublic, $serverPublic, $nonce, $ciphertext) =
                 \explode(':', $block);
 
             if (!\hash_equals($clientPublic, $validLicense['publickey'])) {
@@ -251,7 +258,9 @@ class Verify extends Base\Command
     private function verifyMerkleRoot($blocks, $hash)
     {
         $mt = new \ParagonIE\AsgardClient\Structures\MerkleTree($blocks);
-        return $mt->isValidRoot(\Sodium::sodium_hex2bin($hash));
+        return $mt->isValidRoot(
+            \Sodium::sodium_hex2bin($hash)
+        );
     }
     
     /**
@@ -276,6 +285,7 @@ class Verify extends Base\Command
                     // A simple hash (SHA256, etc)
                     $line = \hash($algo, $filedata, true);
             }
+            
             if (\hash_equals($line, \Sodium::sodium_hex2bin($hash))) {
                 ++$matches;
             } else {

@@ -23,7 +23,9 @@ class Update extends Base\Command
      */
     public function fire(array $args = [])
     {
-        $this->getCommandObject('sync')->silentSync();
+        $this->getCommandObject('sync')
+            ->silentSync();
+        
         $installed = self::$userConfig->get(['packages']);
         
         $packages = [];
@@ -36,26 +38,38 @@ class Update extends Base\Command
         if (!empty($args)) {
             // Update one package
             if (!\in_array($args[0], $packages)) {
-                // We need to install it!
-                return $this->getCommandObject('Get')->fire($args[0]);
+                // We need to install it, not update it!
+                return $this->getCommandObject('Get')
+                    ->fire($args[0]);
             }
-            list($updates, $file, $licenses) = $this->getCommandObject('download')->silentFetchAll(
-                [
-                    $args[0]
-                ]
-            );
+            
+            list($updates, $file, $licenses) = $this->getCommandObject('download')
+                ->silentFetchAll(
+                    [
+                        $args[0]
+                    ]
+                );
         } else {
             // Let's get updates for every package
-            list($updates, $file, $licenses) = $this->getCommandObject('download')->silentFetchAll(
-                $packages, $publickeys
+            list($updates, $file, $licenses) = $this->getCommandObject('download')
+                ->silentFetchAll(
+                    $packages,
+                    $publickeys
+                );
+        }
+        $num = \count($updates);
+        
+        $results = [];
+        for ($i = 0; $i < $num; ++$i) {
+            $results = $this->upgrade(
+                $file[$i],
+                $updates[$i],
+                $licenses[$i],
+                $packages[$i]
             );
         }
         
-        $num = \count($updates);
-        for ($i = 0; $i < $num; ++$i) {
-            $this->upgrade($file[$i], $updates[$i], $licenses[$i], $packages[$i]);
-        }
-        
+        return $results;
     }
 
     /**
@@ -91,14 +105,17 @@ class Update extends Base\Command
     {
         $id = null;
         $pack = false;
+        $installed_pkgs = self::$userConfig->get(['packages']);
+        
         // If it's not already installed, we need to install it instead!
-        foreach (self::$userConfig->get(['packages']) as $key => $pkg) {
+        foreach ($installed_pkgs as $key => $pkg) {
             if ($pkg['name'] === $select) {
                 $id = $key;
                 $pack = $pkg;
                 break;
             }
         }
+        
         $serverInfo = null;
         foreach ($updates as $upd) {
             if ($upd['name'] === $select) {
@@ -107,20 +124,27 @@ class Update extends Base\Command
             }
         }
         if (!$pack) {
-            // Nope.
-            return $this->getCommandObject('Install')->fire($select);
+            // Nope. Install it instead!
+            return $this->getCommandObject('Install')
+                ->fire($select);
         }
         $now = new \DateTime('NOW');
         
-        $block = $this->getCommandObject('verify')->check($select, $pack);
+        $block = $this->getCommandObject('verify')
+            ->check(
+                $select,
+                $pack
+            );
         
         $pack['version'] = $block['version'];
         $pack['blockhash'] = $block['hash'];
         $pack['date'] = $now->format('c');
-        self::$userConfig->get(['packages'][$id], $pack);
         
         $oldFile = \tmpfile(ASGARD_LOCAL_CONFIG.'/tmp');
         \rename($pack['location'], $oldFile);
         \rename($pkg_file, $pack['location']);
+        
+        self::$userConfig->set(['packages'][$id], $pack);
+        self::$userConfig->save();
     }
 }

@@ -73,8 +73,10 @@ class Peer extends Base\Command
         $TAB = str_repeat(' ', self::TAB_SIZE);
         $HTAB = str_repeat(' ', ceil(self::TAB_SIZE / 2));
         
+        // Column width
         $columns = [4, 5, 4, 4, 10];
         $peers = [];
+        
         foreach ($this->db->select('notaries') as $peer) {
             $peers[] = [
                 'nickname' => $peer['nickname'],
@@ -218,11 +220,21 @@ class Peer extends Base\Command
     
     private function remove($nickname)
     {
-        return $this->db->delete('notaries', ['trust' => 0]);
+        return $this->db->delete(
+            'notaries',
+            [
+                'nickname' => $nickname
+            ]
+        );
     }
     
     private function flushUntrusted()
     {
-        return $this->db->delete('notaries', ['trust' => 0]);
+        return $this->db->delete(
+            'notaries',
+            [
+                'trust' => 0
+            ]
+        );
     }
 }

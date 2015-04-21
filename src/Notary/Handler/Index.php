@@ -9,5 +9,4 @@ class Index extends Base\AbstractHandler
     {
         die("ASGard Client");
     }
-    
 }

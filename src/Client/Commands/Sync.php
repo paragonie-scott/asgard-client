@@ -8,7 +8,7 @@ class Sync extends Base\Command
     public $essential = false;
     public $display = 7;
     public $name = 'Synchronize';
-    public $description = 'Download updates to the distributed ledger.';
+    public $description = 'Download updates to the local copy of the distributed ledger.';
 
     /**
      * Execute the sync command
@@ -20,6 +20,9 @@ class Sync extends Base\Command
     public function fire(array $args = [])
     {
         $lastBlock = $this->getLastBlock();
+        
+        // We can probably remove this in a later version. Should never be used
+        // again, after all:
         if (!empty($lastBlock)) {
             $lastBlockId = $lastBlock['id'];
             echo "Last Block: ".$lastBlock['hash']."\n";
@@ -31,7 +34,11 @@ class Sync extends Base\Command
         echo "Mirror: ".$mirror['url']."\n";
         
         // We don't really need to consider $args for syncing...
-        $newBlocks = $this->getNewBlocksFromMirror($mirror, $lastBlockId, true);
+        $newBlocks = $this->getNewBlocksFromMirror(
+            $mirror,
+            $lastBlockId,
+            true
+        );
         
         // Okay, now let's look at our peer notaries!
         if (!empty($newBlocks)) {
@@ -50,6 +57,11 @@ class Sync extends Base\Command
      */
     public function getLastBlock()
     {
+        // In our sqlite driver, this basically does
+        // SELECT * FROM blocks ORDER BY id DESC OFFSET 0 LIMIT 1
+        
+        // Eventually we will support more than one backend!
+        
         return $this->bc->selectRow(
             'blocks', 
             '*', 
@@ -74,7 +86,8 @@ class Sync extends Base\Command
     public function getNewBlocksFromMirror($mirror, $lastBlockId, $echo = false)
     {
         $matches = [];
-        // $mirror['url']
+        
+        // We just want to strip information from the Mirror's URL here
         if (\preg_match('#^[A-Za-z]+://([^/]+)(/.*)?#', $mirror['url'], $matches)) {
             $domain = $matches[1];
             $basepath = isset($matches[2])
@@ -88,6 +101,8 @@ class Sync extends Base\Command
         } else {
             throw new \Exception("Invalid mirror URL");
         }
+        
+        // Create an HTTPS object (cURL interface that defaults to secure)
         $net = new Base\HTTPS($domain);
         
         echo 'Synchronizing...';
@@ -104,6 +119,7 @@ class Sync extends Base\Command
         if ($echo) {
             echo $this->c['red'], ' FAILED!', $this->c[''], "\n";
         }
+        // Still here? :(
         throw new \Exception("API response error!");
     }
     
@@ -118,10 +134,15 @@ class Sync extends Base\Command
         } else {
             $lastBlockId = 0;
         }
-        $mirror = $this->getCommandObject('Mirror', true)->getRandomMirror();
+        $mirror = $this->getCommandObject('Mirror')
+            ->getRandomMirror();
         
         // We don't really need to consider $args for syncing...
-        $newBlocks = $this->getNewBlocksFromMirror($mirror, $lastBlockId, false);
+        $newBlocks = $this->getNewBlocksFromMirror(
+            $mirror,
+            $lastBlockId,
+            false
+        );
         
         // Okay, now let's look at our peer notaries!
         if (!empty($newBlocks)) {
@@ -151,7 +172,7 @@ class Sync extends Base\Command
     }
     
     /**
-     * Did this
+     * Did this achieve consensus?
      * 
      * @param array $peerResponse
      * @param array $newBlocks
@@ -171,7 +192,12 @@ class Sync extends Base\Command
 
         if ($elapsed < \ParagonIE\AsgardClient\MetaData::SYNC_MAX_DELTA) {
             // At this point, we also know it's a fresh message too!
-            if ($this->compareBlocks($newBlocks, $peerResponse['blocks'], $echo)) {
+            $cmp = $this->compareBlocks(
+                $newBlocks,
+                $peerResponse['blocks'],
+                $echo
+            );
+            if ($cmp) {
                 return true;
             } elseif ($echo) {
                 echo $this->c['red'], 'Peer notary disagrees with blockchain: ', $peer['nickname'], $this->c[''], "\n";
@@ -192,7 +218,11 @@ class Sync extends Base\Command
      */
     private function compareBlocks($newBlocks, $peerBlocks, $echo)
     {
-        $size = [\count($newBlocks), \count($peerBlocks)];
+        $size = [
+            \count($newBlocks),
+            \count($peerBlocks)
+        ];
+        
         if ($size[0] < $size[1]) { 
             // Erm, no. Hell no.
             if ($echo) {
@@ -207,11 +237,12 @@ class Sync extends Base\Command
             return false;
         }
         
-        // Just, no.
         $nb = \array_values($newBlocks);
         $pb = \array_values($peerBlocks);
         
         for ($i = 0; $i < $size[0]; ++$i) {
+            // Comparing the tailhash is an optimization that saves us from
+            // starting over at the genesis block for every update!
             if (!\hash_equals($pb['tailhash'], $nb['tailhash'])) {
                 return false;
             }
@@ -229,16 +260,25 @@ class Sync extends Base\Command
      */
     private function insertBlocks($newBlocks, $echo)
     {
+        
+        // SELECT id, hash FROM blocks ORDER BY id DESC OFFSET 0 LIMIT 1
         $tail = $this->bc->selectRow(
             'blocks',
             ['id', 'hash'],
             [],
-            [ ['id', DESC] ]
+            [ ['id', 'DESC'] ],
+            [],
+            0,
+            1
         );
+        
         $lastId = $tail['id'];
         $lastHash = $tail['hash'];
         
         foreach ($newBlocks as $b) {
+            
+            // Let's set the nextblock pointers in what was previously the last
+            // block.
             $this->bc->update(
                 'blocks', 
                 [
@@ -249,6 +289,8 @@ class Sync extends Base\Command
                     'id' => $lastId
                 ]
             );
+            
+            // Let's insert our new block!
             $this->bc->insert('blocks', [
                 'id'         => $b['blockid'],
                 'hash'       => $b['merkleroot'],
@@ -257,14 +299,18 @@ class Sync extends Base\Command
                 'prevblock'  => $lastId,
                 'contents'   => $b['blockdata'],
             ]);
+            
+            // For the purpose of looping, overwrite these values too.
             $lastId = \intval($b['blockid']);
             $lastHash = $b['merkleroot'];
         }
+        
         if ($echo) {
             $numBlocks = \count($newBlocks);
             echo "\t", $this->c['green'], 'SYNC SUCCESSFUL! ', $this->c[''],
                 $numBlocks, ' new block', ($newBlocks === 1 ? '' : 's'), ' added.', "\n";
         }
+        
         return true;
     }
     
@@ -279,16 +325,29 @@ class Sync extends Base\Command
         if ($echo) {
             echo "\n\tVerifying new blocks...\n";
         }
-        $lasthash = $this->bc->single("SELECT hash FROM blocks ORDER BY id DESC");
+        
+        // SELECT hash FROM blocks ORDER BY id DESC
+        $lasthash = $this->bc->selectOne(
+            'blocks',
+            ['hash'],
+            [],
+            [['id', 'DESC']],
+            [],
+            0,
+            1
+        );
+        
+        // SELECT * FROM notaries
         $notaries = $this->db->select('notaries');
         
         $consensus = [
             'fail' => 0,
+            'timeout' => 0,
             'pass' => 0
         ];
         
         foreach ($notaries as $peer) {
-            $hostname = $peer['https'] > 0 
+            $hostname = $peer['https'] > 0
                 ? 'https://'.$peer['host'].':'.$peer['port']
                 : 'http://'.$peer['host'].':'.$peer['port'];
             
@@ -298,25 +357,31 @@ class Sync extends Base\Command
                 '/blockchain/hash/'.$lasthash
             );
             
-            if (empty($body)) {
+            if (!empty($body)) {
                 $response = \json_decode($body, true);
             } else {
-                $response = null;
+                ++$consensus['timeout'];
+                continue;
             }
+            
             if (!empty($response['message']) && !empty($response['signature'])) {
+                // Let's grab everything we need to verify the  detached signature
                 $msg = \base64_decode($response['message']);
                 $sig = \base64_decode($response['signature']);
                 $pubkey = \base64_decode($peer['publickey']);
                 
                 if (\Sodium::crypto_sign_verify_detached($sig, $msg, $pubkey)) {
                     // At this point, we know the signature was valid.
-                    if ($this->analyzePeerResponse(
+                    $analysis = $this->analyzePeerResponse(
                         \json_decode($msg, true), 
                         $newBlocks,
                         $peer,
                         $echo
-                    )) {
+                    );
+                    
+                    if ($analysis) {
                         ++$consensus['pass'];
+                        // Don't run the last line of the loop
                         continue;
                     }
                 } elseif ($echo) {
@@ -325,6 +390,7 @@ class Sync extends Base\Command
             } elseif ($echo) {
                 echo $this->c['red'], 'Peer connection failed or response invalid: ', $peer['nickname'], $this->c[''], "\n";
             }
+            
             // When something fails, increment it here.
             ++$consensus['fail'];
         }

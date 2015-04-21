@@ -11,7 +11,9 @@ class BlockChain extends Base\AbstractHandler
     {
         $args = \func_get_args();
         if (\func_num_args() === 1) {
-            return $this->blocksSince($args[0]);
+            return $this->blocksSince(
+                $args[0]
+            );
         }
         return $this->allBlocks();
     }
@@ -34,8 +36,10 @@ class BlockChain extends Base\AbstractHandler
             [$begin]
         );
         
-        \header("Content-Type: application/json");
-        echo $this->notarizeBlocks($blocks);
+        if (!empty($blocks)) {
+            \header("Content-Type: application/json");
+            echo $this->notarizeBlocks($blocks);
+        }
         exit;
     }
     
@@ -48,8 +52,10 @@ class BlockChain extends Base\AbstractHandler
             "SELECT id, hash, prevhash, nexthash FROM blocks ORDER BY id ASC"
         );
         
-        \header("Content-Type: application/json");
-        echo $this->notarizeBlocks($blocks);
+        if (!empty($blocks)) {
+            \header("Content-Type: application/json");
+            echo $this->notarizeBlocks($blocks);
+        }
         exit;
     }
     
@@ -60,15 +66,20 @@ class BlockChain extends Base\AbstractHandler
      */
     private function notarizeBlocks($blocks)
     {
+        // We timebox our notary communications, just because
         $message = \json_encode([
             'datetime' => \date('c'),
             'blocks' => $blocks
         ]);
+        
+        // Load our signing key from the configuration
         $skey = \Sodium::crypto_sign_secretkey(
             \base64_decode(
                 $this->config['crypto']['signing_key']
             )
         );
+        
+        // Grab a detached signature
         $signature = \Sodium::crypto_sign_detached($message, $skey);
         
         return \json_encode(

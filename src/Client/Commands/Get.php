@@ -26,18 +26,36 @@ class Get extends Base\Command
         }
         
         // Synchronize the ledger
-        $this->getCommandObject('sync')->silentSync();
+        $this->getCommandObject('sync')
+            ->silentSync();
         
         // What updates are available; what packages are we requesting?
         echo 'Downloading updates...', "\n";
-        list($updates, $pkg, $license) = $this->getCommandObject('download')->silentFetch($args[0]);
+        
+        // Without printing too much, let's download the file from a mirror
+        list($updates, $pkg, $license) = $this->getCommandObject('download')
+            ->silentFetch($args[0]);
         
         if (empty($updates[0])) {
             echo 'Already up to date!', "\n";
         }
-        $blocks = $this->getCommandObject('verify')->check($args[0], $pkg);
+        
+        // Let's verify the block with our notaries
+        $blocks = $this->getCommandObject('verify')
+            ->check(
+                $args[0],
+                $pkg
+            );
+        
         if (!empty($blocks)) {
-            $this->install($pkg, $updates, $blocks['extracted'], $blocks, $license, $args[0]);
+            // Well, let's install then!
+            $this->install(
+                $pkg,
+                $updates,
+                $blocks,
+                $license,
+                $args[0]
+            );
         }
     }
 
@@ -63,21 +81,25 @@ class Get extends Base\Command
      * 
      * @param string $pkg_file  Temporary file location
      * @param array $updates    
-     * @param array $block      
      * @param array $blocks     
      * @param string $publickey 
      * @param string $selected  
      * 
      * @todo figure this out
      */
-    private function install($pkg_file, $updates, $block, $blocks, $publickey, $selected)
+    private function install($pkg_file, $updates, $blocks, $publickey, $selected)
     {
+        $block = $blocks['extracted'];
+        
         // If it's already installed, we need to update it instead!
         $configTree = self::$userConfig->get(['packages']);
         if (!empty($configTree)) {
             foreach ($configTree as $pkg) {
                 if ($pkg['name'] === $selected) {
-                    return $this->getCommandObject('Update')->fire($selected);
+                    
+                    // The package is already installed. Update it instead!
+                    return $this->getCommandObject('Update')
+                        ->fire($selected);
                 }
             }
         }
@@ -85,10 +107,12 @@ class Get extends Base\Command
         $serverInfo = null;
         foreach ($updates as $upd) {
             if ($upd['packagename'] === $selected) {
+                // This is the array data we need
                 $serverInfo = $upd;
                 break;
             }
         }
+        
         // We shouldn't have this happen
         if (empty($serverInfo)) {
             return false;
@@ -103,10 +127,11 @@ class Get extends Base\Command
             'location' => $destination,
             'publickey' => $publickey,
             'blockhash' => $blocks['merkleroot'],
-            'version' => isset($block['version']) ? $block['version'] : '',
+            'version' => isset($block[0]['version']) ? $block[0]['version'] : '',
             'date' => $now->format('c')
         ];
         
+        // Save this data in the JSON configuration
         self::$userConfig->append(['packages'], $save);
         self::$userConfig->save();
     }

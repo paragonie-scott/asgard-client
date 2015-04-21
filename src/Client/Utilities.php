@@ -46,6 +46,14 @@ abstract class Utilities
         return $str;
     }
     
+    /**
+     * Load a storage adapter object
+     * 
+     * @param string $label
+     * @param array $config
+     * @return \ParagonIE\AsgardClient\Storage\Adapters\AdapterInterface
+     * @throws \Exception
+     */
     public static function getStorageAdapter($label, array $config)
     {
         $settings = null;
@@ -55,7 +63,7 @@ abstract class Utilities
             }
         }
         if (empty($settings)) {
-            throw new Exception("Error parsing configuration");
+            throw new \Exception("Error parsing configuration");
         }
         
         $create = false;
@@ -74,7 +82,7 @@ abstract class Utilities
                 );
                 break;
             default:
-                throw new Exception("Storage Driver not implemented!");
+                throw new \Exception("Storage Driver not implemented!");
         }
         
         // Do we need to creat the schemas
@@ -86,6 +94,16 @@ abstract class Utilities
         return $adapter;
     }
     
+    /**
+     * Helper method to handle challenge-response authentication. Just returns
+     * the decrypted response.
+     * 
+     * @param string $serverPublicKey
+     * @param string $serverNonce
+     * @param string $challenge
+     * @param string $secretkey
+     * @return string
+     */
     public static function challengeResponse(
         $serverPublicKey,
         $serverNonce,
@@ -108,7 +126,7 @@ abstract class Utilities
             $eBoxKey
         );
         
-        \Sodium::sodium_memzero($eBoxkey);
+        \Sodium::sodium_memzero($eBoxKey);
         return $result;
     }
 }
